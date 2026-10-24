@@ -12,6 +12,9 @@
   main.replaceChildren();
   main.className = 'viewport-page';
   const layout = node('div', 'view-layout');
+  layout.setAttribute('role', 'region');
+  layout.setAttribute('aria-label', 'Colección de premios');
+  layout.tabIndex = 0;
   const stage = node('div', 'screen-stage');
   const controls = node('nav', 'page-controls');
   controls.setAttribute('aria-label', 'Vistas de esta página');
@@ -32,33 +35,43 @@
   for (let i = 0; i < awards.length; i += 2) groups.push(awards.slice(i, i + 2));
   groups.push([...source.querySelectorAll('.awards-disclaimer,main > .back')]);
 
+  // Un único H1 compartido: mismo encabezado y posición en los diez paneles.
+  const screen = node('section', 'screen');
+  const flow = node('div', 'flow');
+  const heading = node('header', 'prize-heading');
+  headerParts.forEach(e => heading.append(clone(e)));
+  flow.append(heading); screen.append(flow); stage.append(screen);
   const frames = groups.map((items, index) => {
-    const frame = node('section', 'screen prize-view');
+    const frame = node('section', 'prize-panel');
+    frame.id = `prize-panel-${index + 1}`;
     frame.setAttribute('aria-label', `Vista ${index + 1}`);
-    const flow = node('div', 'flow');
-    const heading = node('header', 'prize-heading');
-    headerParts.forEach(e => heading.append(clone(e)));
-    flow.append(heading);
     let grid;
     for (const item of items) {
       if (item.classList.contains('award')) {
-        if (!grid) { grid = node('div', 'awards-grid'); flow.append(grid); }
+        if (!grid) { grid = node('div', 'awards-grid'); frame.append(grid); }
         grid.append(clone(item));
-      } else flow.append(clone(item));
+      } else frame.append(clone(item));
     }
-    frame.append(flow); stage.append(frame);
+    flow.append(frame);
     return frame;
   });
 
   let selected = 0;
   function show(index) {
+    const previous = selected;
     selected = Math.max(0, Math.min(frames.length - 1, index));
     frames.forEach((frame, i) => { frame.hidden = i !== selected; });
     prev.disabled = selected === 0; next.disabled = selected === frames.length - 1;
+    prev.setAttribute('aria-controls', frames[selected].id);
+    next.setAttribute('aria-controls', frames[selected].id);
     count.textContent = `${selected + 1} / ${frames.length}`;
     if (document.activeElement === next && next.disabled) prev.focus({ preventScroll: true });
     if (document.activeElement === prev && prev.disabled && !next.disabled) next.focus({ preventScroll: true });
-    window.scrollTo(0, 0);
+    // Reinicia solo el área de lectura: los controles móviles no se desplazan.
+    if (previous !== selected) {
+      layout.scrollTo({ top: 0, behavior: 'instant' });
+      if (window.scrollY) window.scrollTo({ top: 0, behavior: 'instant' });
+    }
   }
   prev.addEventListener('click', () => show(selected - 1));
   next.addEventListener('click', () => show(selected + 1));
